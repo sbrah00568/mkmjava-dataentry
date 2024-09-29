@@ -40,3 +40,5 @@ build/
 .idea
 
 .gitignore
+
+src/main/resources/application.local.properties
