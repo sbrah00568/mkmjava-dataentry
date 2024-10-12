@@ -71,30 +71,31 @@ public class DataEntryService {
             Map<Integer, String> headerMap = new HashMap<>();
 
             boolean isHeader = true;
-            int countRow = 0;
+            int firstDataRow = 2;
+            int currentRowIndex = 0;
             for (Row row : sheet) {
                 // skip title
-                if (countRow >= 2) {
-                    if (isHeader) {
-                        // set header
-                        isHeader = false;
-                        int countHeaderCell = 0;
-                        for (Cell cell : row) {
-                            headerMap.put(countHeaderCell, cell.toString());
-                            countHeaderCell++;
-                        }
-                    } else {
-                        // set body
-                        Map<String, String> bodyMap = new HashMap<>();
-                        int countBodyCell = 0;
-                        for (Cell cell : row) {
-                            bodyMap.put(headerMap.get(countBodyCell), cell.toString());
-                            countBodyCell++;
-                        }
-                        dataImunisasi.add(bodyMap);
-                    }
+                if (currentRowIndex < firstDataRow) {
+                    currentRowIndex++;
+                    continue;
                 }
-                countRow++;
+
+                if (isHeader) {
+                    // set header
+                    isHeader = false;
+                    for (Cell cell : row) {
+                        headerMap.put(cell.getColumnIndex(), cell.toString());
+                    }
+                } else {
+                    // set body
+                    Map<String, String> bodyMap = new HashMap<>();
+                    for (Cell cell : row) {
+                        bodyMap.put(headerMap.get(cell.getColumnIndex()), cell.toString());
+                    }
+                    dataImunisasi.add(bodyMap);
+                }
+
+                currentRowIndex++;
             }
         }
 
