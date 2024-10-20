@@ -15,7 +15,7 @@ public class SehatIndoController {
 
     @PostMapping("/sehatindo")
     public void execute(@RequestParam("xlsxFile") MultipartFile xlsxFile, @RequestParam("type") String type) {
-        sehatIndoService.execute(xlsxFile, type);
+        sehatIndoService.processDataEntry(xlsxFile, type);
     }
 
 }
