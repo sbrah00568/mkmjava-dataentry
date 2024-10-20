@@ -42,3 +42,5 @@ build/
 .gitignore
 
 src/main/resources/application.local.properties
+
+lib
