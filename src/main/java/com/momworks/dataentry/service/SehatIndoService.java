@@ -17,6 +17,8 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.PointerInput;
+import org.openqa.selenium.interactions.Sequence;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.stereotype.Service;
@@ -59,17 +61,14 @@ public class SehatIndoService {
             // Initialize the AppiumDriver using the specified URL and options for AndroidDriver
             driver = new AndroidDriver(new URL(sehatIndoProperties.getAppiumUrl()), options);
 
-            // Set up WebDriverWait to wait for elements to be clickable with a 10-second timeout
-            WebDriverWait webDriverWait = new WebDriverWait(driver, Duration.ofSeconds(10));
-
             // Read data from xlsx file
             List<SehatIndoDto> dataImunisasi = onReadData(xlsxFile, type);
 
             // Automate login to apps
-            onLogin(webDriverWait);
+            onLogin(driver);
 
             // Automate data entry process
-            onWriteData(webDriverWait, dataImunisasi);
+            onWriteData(driver, dataImunisasi);
 
         } catch (IOException e) {
             log.error("An error occurred: {}", e.getMessage(), e);
@@ -142,7 +141,7 @@ public class SehatIndoService {
     }
 
     private boolean isImunisasiRutin(SehatIndoDto sehatIndoDto, String type) {
-        int month = Integer.valueOf(sehatIndoDto.getUsiaAnak().split(SPACE)[FIRST_INDEX], FIRST_INDEX);
+        int month = Integer.parseInt(sehatIndoDto.getUsiaAnak().split(SPACE)[FIRST_INDEX]);
         return month >= (type.equals(BAYI) ? 0 : 12) && month < (type.equals(BAYI) ? 12 : 24);
     }
 
@@ -169,7 +168,10 @@ public class SehatIndoService {
     }
 
 
-    private void onLogin(WebDriverWait webDriverWait) {
+    private void onLogin(AppiumDriver driver) {
+        // Set up WebDriverWait to wait for elements to be clickable with a 10-second timeout
+        WebDriverWait webDriverWait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
         // Input phone number
         WebElement inputPhoneNumber = webDriverWait.until(ExpectedConditions.elementToBeClickable(By.xpath(
                 "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout" +
@@ -205,7 +207,10 @@ public class SehatIndoService {
         log.info("Login to the main menu was successful.");
     }
 
-    private void onWriteData(WebDriverWait webDriverWait, List<SehatIndoDto> sehatIndoDtoList) {
+    private void onWriteData(AppiumDriver driver, List<SehatIndoDto> sehatIndoDtoList) {
+        // Set up WebDriverWait to wait for elements to be clickable with a 10-second timeout
+        WebDriverWait webDriverWait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
         // Select "Imunisasi" button from layanan klaster
         WebElement imunisasiButton = webDriverWait.until(ExpectedConditions.elementToBeClickable(By.xpath(
                 "//android.widget.ScrollView//android.view.View[@content-desc=\"Imunisasi\"]")));
@@ -213,9 +218,69 @@ public class SehatIndoService {
 
         for (SehatIndoDto sehatIndoDto : sehatIndoDtoList) {
             if (sehatIndoDto.isImunisasiRutin()) {
-                // TODO: process input imunisasi rutin
+                // Open imunisasi rutin menu
+                WebElement imunisasiRutinButton = webDriverWait.until(ExpectedConditions.elementToBeClickable(By.xpath(
+                        "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout" +
+                                "/android.view.View/android.view.View/android.view.View//android.widget.ImageView[@content-desc=\"Imunisasi Rutin\"]")));
+                imunisasiRutinButton.click();
+
+                // Start input tanggal imunisasi rutin (open tanggal seekbar)
+                WebElement imunisasiRutinTanggalButton = webDriverWait.until(ExpectedConditions.elementToBeClickable(By.xpath(
+                        "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout" +
+                                "/android.view.View/android.view.View/android.view.View/android.view.View[2]/android.view.View[3]/android.widget.ImageView")));
+                imunisasiRutinTanggalButton.click();
+
+                // Declare pointer finger
+                PointerInput finger = new PointerInput(PointerInput.Kind.TOUCH, "finger");
+
+                // ========= START performing Scroll date on tanggalSeekbar to select day of month of tanggal imunisasi ========= //
+                // Get tanggal scroll dorm start x y and end y
+                int imunisasiRutinTanggalScrollDotmStartX = (driver.manage().window().getSize().getWidth() / 2) - (driver.manage().window().getSize().getWidth() / 4);
+                int imunisasiRutinTanggalScrollDotmStartY = (driver.manage().window().getSize().getHeight() / 2);
+                int imunisasiRutinTanggalScrollDotmEndY = (driver.manage().window().getSize().getHeight() / 2) + (driver.manage().window().getSize().getHeight() / 16);
+
+                Sequence scrollDotm = new Sequence(finger, 1);
+                scrollDotm.addAction(finger.createPointerMove(Duration.ZERO, PointerInput.Origin.viewport(), imunisasiRutinTanggalScrollDotmStartX, imunisasiRutinTanggalScrollDotmStartY));
+                scrollDotm.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+                scrollDotm.addAction(finger.createPointerMove(Duration.ofMillis(600), PointerInput.Origin.viewport(), imunisasiRutinTanggalScrollDotmStartX, imunisasiRutinTanggalScrollDotmEndY));
+                scrollDotm.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+                driver.perform(List.of(scrollDotm));
+                // ========= END performing Scroll date on tanggalSeekbar to select day of month of tanggal imunisasi ========= //
+
+                // ========= START performing Scroll month on tanggalSeekbar to select day of month of tanggal imunisasi ========= //
+                // Get tanggal scroll month start x y and end y
+                int imunisasiRutinTanggalScrollMonthStartX = (driver.manage().window().getSize().getWidth() / 2);
+                int imunisasiRutinTanggalScrollMonthStartY = (driver.manage().window().getSize().getHeight() / 2);
+                int imunisasiRutinTanggalScrollMonthEndY = (driver.manage().window().getSize().getHeight() / 2) + (driver.manage().window().getSize().getHeight() / 16);
+
+                Sequence scrollMonth = new Sequence(finger, 1);
+                scrollMonth.addAction(finger.createPointerMove(Duration.ZERO, PointerInput.Origin.viewport(), imunisasiRutinTanggalScrollMonthStartX, imunisasiRutinTanggalScrollMonthStartY));
+                scrollMonth.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+                scrollMonth.addAction(finger.createPointerMove(Duration.ofMillis(600), PointerInput.Origin.viewport(), imunisasiRutinTanggalScrollMonthStartX, imunisasiRutinTanggalScrollMonthEndY));
+                scrollMonth.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+                driver.perform(List.of(scrollMonth));
+                // ========= END performing Scroll month on tanggalSeekbar to select day of month of tanggal imunisasi ========= //
+
+                // ========= START performing tap Oke button on tanggalSeekbar action to close tanggal seekbar and set tanggal imunisasi ========= //
+                int imunisasiRutinTanggalSeekbarOkTargetX = (driver.manage().window().getSize().getWidth() / 2);
+                int imunisasiRutinTanggalSeekbarOkTargetY = (int) (((double) driver.manage().window().getSize().getHeight() / 2) + ((double) driver.manage().window().getSize().getHeight() / 16) * 2.5);
+
+                Sequence tapOkeButton = new Sequence(finger, 1);
+                tapOkeButton.addAction(finger.createPointerMove(Duration.ZERO, PointerInput.Origin.viewport(), imunisasiRutinTanggalSeekbarOkTargetX, imunisasiRutinTanggalSeekbarOkTargetY));
+                tapOkeButton.addAction(finger.createPointerDown(PointerInput.MouseButton.LEFT.asArg()));
+                tapOkeButton.addAction(finger.createPointerUp(PointerInput.MouseButton.LEFT.asArg()));
+                driver.perform(List.of(tapOkeButton));
+                // ========= END performing tap Oke button on tanggalSeekbar action to close tanggal seekbar and set tanggal imunisasi ========= //
+
+                // Exit imunisasi rutin menu
+                WebElement exitImunisasiRutinMenu = webDriverWait.until(ExpectedConditions.elementToBeClickable(By.xpath(
+                        "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout" +
+                                "/android.view.View/android.view.View/android.view.View/android.view.View[1]/android.widget.ImageView")));
+                exitImunisasiRutinMenu.click();
+
             } else {
                 // TODO: process input riwayat imunisasi
+                log.info("Process input riwayat imunisasi");
             }
         }
 
