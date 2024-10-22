@@ -3,9 +3,17 @@ package com.momworks.dataentry.constant;
 public class SehatIndoConstants {
 
     public static final String BAYI = "bayi";
+    public static final String BADUTA = "baduta";
     public static final String SHEET_NAME = "Sheet1";
-    public static final int SECOND = 2;
     public static final int ZERO = 0;
+    public static final int ONE = 1;
+    public static final int TWO = 2;
+    public static final int THREE = 3;
+    public static final int FOUR = 4;
+    public static final int NINE = 9;
+    public static final int TWELVE = 12;
+    public static final int EIGHTEEN = 18;
+    public static final int TWENTY_FOUR = 24;
     public static final String POINT_ZERO = ".0";
     public static final String SPACE = " ";
     public static final String EMPTY = "";
@@ -18,6 +26,9 @@ public class SehatIndoConstants {
     public static final String PILIH = "Pilih";
     public static final String HASIL_PENCARIAN = "Hasil pencarian";
     public static final String WANASARI = "WANASARI";
+    public static final String LANGUAGE = "in";
+    public static final String COUNTRY = "ID";
+    public static final String DATETIME_PATTERN = "yyyy-MM-dd";
 
     // XPATH Format = XPATH + PAGE + (button name, edit text name, menu name)
     public static final String XPATH_LOGIN_NOMOR_TELEPON_FIELD = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View//android.widget.EditText";

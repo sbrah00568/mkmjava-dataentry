@@ -27,7 +27,7 @@ public class SehatIndoService {
     private final SehatIndoProperties properties;
     private final SehatIndoDataService dataSvc;
 
-    public void performDataEntry(MultipartFile xlsxFile, String type) {
+    public void performDataEntry(MultipartFile xlsxFile) {
         AppiumDriver appiumDriver = null;
         try {
             // Specify device and application details
@@ -53,7 +53,7 @@ public class SehatIndoService {
 
             // Perform data entry process
             automation.click(XPATH_BERANDA_IMUNISASI_MENU);
-            dataSvc.retrieveData(xlsxFile, type).forEach(sehatIndoDto -> {
+            dataSvc.retrieveData(xlsxFile).forEach(sehatIndoDto -> {
                 if (sehatIndoDto.isImunisasiRutin()) {
                     handleImunisasiRutin(automation, sehatIndoDto);
                 } else {
