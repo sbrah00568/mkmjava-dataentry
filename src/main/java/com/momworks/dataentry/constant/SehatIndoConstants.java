@@ -3,9 +3,17 @@ package com.momworks.dataentry.constant;
 public class SehatIndoConstants {
 
     public static final String BAYI = "bayi";
+    public static final String BADUTA = "baduta";
     public static final String SHEET_NAME = "Sheet1";
-    public static final int SECOND = 2;
     public static final int ZERO = 0;
+    public static final int ONE = 1;
+    public static final int TWO = 2;
+    public static final int THREE = 3;
+    public static final int FOUR = 4;
+    public static final int NINE = 9;
+    public static final int TWELVE = 12;
+    public static final int EIGHTEEN = 18;
+    public static final int TWENTY_FOUR = 24;
     public static final String POINT_ZERO = ".0";
     public static final String SPACE = " ";
     public static final String EMPTY = "";
