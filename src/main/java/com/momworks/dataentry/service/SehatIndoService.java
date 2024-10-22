@@ -8,6 +8,7 @@ import io.appium.java_client.android.AndroidDriver;
 import io.appium.java_client.android.options.UiAutomator2Options;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.openqa.selenium.TimeoutException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,7 +27,7 @@ public class SehatIndoService {
     private final SehatIndoProperties properties;
     private final SehatIndoDataService dataSvc;
 
-    public void processDataEntry(MultipartFile xlsxFile, String type) {
+    public void performDataEntry(MultipartFile xlsxFile, String type) {
         AppiumDriver appiumDriver = null;
         try {
             // Specify device and application details
@@ -42,12 +43,19 @@ public class SehatIndoService {
             // Initialize automation util with 10 seconds waiting duration
             Automation automation = new Automation(appiumDriver, Duration.ofSeconds(10));
 
-            // Handle data entry process
-            performLogin(automation);
+            // Perform login process to sehat indonesiaku apps
+            automation.clickAndTypes(XPATH_LOGIN_NOMOR_TELEPON_FIELD, properties.getPhoneNumber());
+            automation.click(XPATH_LOGIN_NOMOR_TELEPON_DISMISS);
+            automation.click(XPATH_LOGIN_LANJUT_BUTTON);
+            automation.clickAndTypes(XPATH_INPUT_PIN_FIELD, properties.getPin());
+            automation.click(XPATH_INPUT_PIN_SIMPAN_BUTTON);
+            log.info("Success login to 'Beranda'.");
+
+            // Perform data entry process
             automation.click(XPATH_BERANDA_IMUNISASI_MENU);
             dataSvc.retrieveData(xlsxFile, type).forEach(sehatIndoDto -> {
                 if (sehatIndoDto.isImunisasiRutin()) {
-                    enterImunisasiRutinData(automation, sehatIndoDto);
+                    handleImunisasiRutin(automation, sehatIndoDto);
                 } else {
                     // TODO: start process entry riwayat imunisasi
                 }
@@ -62,19 +70,10 @@ public class SehatIndoService {
         }
     }
 
-    private void performLogin(Automation automation) {
-        automation.clickAndTypes(XPATH_LOGIN_NOMOR_TELEPON_FIELD, properties.getPhoneNumber());
-        automation.click(XPATH_LOGIN_NOMOR_TELEPON_DISMISS);
-        automation.click(XPATH_LOGIN_LANJUT_BUTTON);
-        automation.clickAndTypes(XPATH_INPUT_PIN_FIELD, properties.getPin());
-        automation.click(XPATH_INPUT_PIN_SIMPAN_BUTTON);
-        log.info("Success login to 'Beranda'.");
-    }
-
-    private void enterImunisasiRutinData(Automation automation, SehatIndoDto sehatIndoDto) {
+    private void handleImunisasiRutin(Automation automation, SehatIndoDto sehatIndoDto) {
         automation.click(XPATH_IMUNISASI_IMUNISASI_RUTIN_MENU);
 
-        // Tanggal seekbar
+        // Set tanggal imunisasi rutin
         automation.click(XPATH_IMUNISASI_RUTIN_TANGGAL_SEEKBAR);
         int centerX = automation.getCenterX();
         int centerY = automation.getCenterY();
@@ -83,13 +82,22 @@ public class SehatIndoService {
         automation.scroll(centerX, centerY, centerX, centerY); // set year
         automation.tap(centerX, (int) (((double) centerY / 2) * 2.5)); // tap oke button
 
-        // TODO: handle when hasil tidak ditemukan, must roll back to previous action to search "DALAM GEDUNG" for default search
-        // Set pos imunisasi
+        // Set pos imunisasi rutin
         automation.click(XPATH_IMUNISASI_RUTIN_POS_IMUNISASI_DROPDOWN);
         automation.click(XPATH_POS_IMUNISASI_SEARCH_LOGO);
         automation.clickAndTypes(XPATH_POS_IMUNISASI_CARI_DISINI_FIELD, dataSvc.getPosName(sehatIndoDto));
         automation.click(XPATH_POS_IMUNISASI_CARI_BUTTON);
-        String hasilPencarian = dataSvc.getHasilPencarian(automation.getElements(XPATH_HASIL_PENCARIAN_PAGE));
+        String hasilPencarian;
+        try {
+            hasilPencarian = dataSvc.getHasilPencarian(automation.getElements(XPATH_HASIL_PENCARIAN_PAGE));
+        } catch (TimeoutException e) {
+            log.info("Pos imunisasi rutin not found. Set as 'DALAM GEDUNG' instead.");
+            automation.click(XPATH_HASIL_PENCARIAN_TIDAK_DITEMUKAN_BACK_BUTTON);
+            automation.click(XPATH_POS_IMUNISASI_SEARCH_LOGO);
+            automation.clickAndTypes(XPATH_POS_IMUNISASI_CARI_DISINI_FIELD, DALAM_GEDUNG);
+            automation.click(XPATH_POS_IMUNISASI_CARI_BUTTON);
+            hasilPencarian = dataSvc.getHasilPencarian(automation.getElements(XPATH_HASIL_PENCARIAN_PAGE));
+        }
         automation.click(String.format(XPATH_HASIL_PENCARIAN_ELEMENT, hasilPencarian));
         automation.click(XPATH_HASIL_PENCARIAN_PILIH_BUTTON);
 

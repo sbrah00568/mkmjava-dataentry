@@ -33,6 +33,7 @@ public class SehatIndoConstants {
     public static final String XPATH_POS_IMUNISASI_CARI_DISINI_FIELD = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.widget.ImageView[2]";
     public static final String XPATH_POS_IMUNISASI_CARI_BUTTON = "//android.view.View[@content-desc=\"Cari pos imunisasi\"]";
     public static final String XPATH_HASIL_PENCARIAN_PAGE = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View[2]/android.view.View";
+    public static final String XPATH_HASIL_PENCARIAN_TIDAK_DITEMUKAN_BACK_BUTTON = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.widget.ImageView[1]";
     public static final String XPATH_HASIL_PENCARIAN_ELEMENT = "//android.view.View[@content-desc=\"%s\"]";
     public static final String XPATH_HASIL_PENCARIAN_PILIH_BUTTON = "//android.view.View[@content-desc=\"Pilih\"]";
     public static final String XPATH_IMUNISASI_RUTIN_BACK_BUTTON = "//android.widget.FrameLayout[@resource-id=\"android:id/content\"]/android.widget.FrameLayout/android.view.View/android.view.View/android.view.View/android.view.View[1]/android.widget.ImageView";
