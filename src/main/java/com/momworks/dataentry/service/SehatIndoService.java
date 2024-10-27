@@ -54,10 +54,8 @@ public class SehatIndoService {
             // Perform data entry process
             automation.click(XPATH_BERANDA_IMUNISASI_MENU);
             dataSvc.retrieveData(xlsxFile).forEach(sehatIndoDto -> {
-                if (sehatIndoDto.isImunisasiRutin()) {
+                if (sehatIndoDto.getImunisasiRutinMap() != null) {
                     handleImunisasiRutin(automation, sehatIndoDto);
-                } else {
-                    // TODO: start process entry riwayat imunisasi
                 }
             });
 

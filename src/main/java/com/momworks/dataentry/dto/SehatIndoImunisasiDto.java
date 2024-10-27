@@ -12,5 +12,5 @@ import lombok.NoArgsConstructor;
 public class SehatIndoImunisasiDto {
     private String tanggal;
     private String pos;
-    private Integer status;
+    private Integer status; // status = 0 means already received imunisasi, otherwise status = 1
 }

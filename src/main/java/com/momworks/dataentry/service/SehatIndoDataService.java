@@ -5,7 +5,6 @@ import com.momworks.dataentry.dto.SehatIndoImunisasiDto;
 import com.momworks.dataentry.enums.Imunisasi;
 import com.momworks.dataentry.enums.SehatIndoColumn;
 import com.momworks.dataentry.util.IndonesianPublicHoliday;
-import com.momworks.dataentry.util.SehatIndoImunisasiMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
@@ -19,7 +18,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
@@ -30,6 +28,9 @@ import static com.momworks.dataentry.constant.SehatIndoConstants.*;
 @Service
 @RequiredArgsConstructor
 public class SehatIndoDataService {
+
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATETIME_PATTERN, new Locale(LANGUAGE, COUNTRY));
+
     public List<SehatIndoDto> retrieveData(MultipartFile xlsxFile) throws IOException {
         List<SehatIndoDto> dataImunisasi = new ArrayList<>();
 
@@ -43,12 +44,9 @@ public class SehatIndoDataService {
             // Set body data
             for (int i = THREE; i <= sheet.getLastRowNum(); i++) {
                 SehatIndoDto sehatIndoDto = new SehatIndoDto();
-                SehatIndoImunisasiMap xlsxImunisasiMap = new SehatIndoImunisasiMap(Imunisasi.class);
+                EnumMap<Imunisasi, SehatIndoImunisasiDto> xlsxImunisasiMap = new EnumMap<>(Imunisasi.class);
                 sheet.getRow(i).forEach(cell -> mapFromXlsxRows(cell, sehatIndoDto, headers, xlsxImunisasiMap));
-                if (isSehatIndoDtoValid(sehatIndoDto, xlsxImunisasiMap)) {
-                    if (sehatIndoDto.isImunisasiRutin()) {
-                        mapImunisasiRutin(sehatIndoDto, xlsxImunisasiMap);
-                    }
+                if (mapAndValidateImunisasi(sehatIndoDto, xlsxImunisasiMap)) {
                     dataImunisasi.add(sehatIndoDto);
                 }
             }
@@ -63,7 +61,7 @@ public class SehatIndoDataService {
             Cell cell,
             SehatIndoDto sehatIndoDto,
             HashMap<Integer, String> headers,
-            SehatIndoImunisasiMap xlsxImunisasiMap
+            EnumMap<Imunisasi, SehatIndoImunisasiDto> xlsxImunisasiMap
     ) {
         Map<String, Consumer<String>> settersMap = getSehatIndoSettersMap(sehatIndoDto);
         String column = headers.get(cell.getColumnIndex());
@@ -71,7 +69,16 @@ public class SehatIndoDataService {
         if (setter != null) {
             setter.accept(cell.toString());
         } else {
-            mapXlsxImunisasiDetails(column, cell, xlsxImunisasiMap);
+            Imunisasi code = Imunisasi.getImunisasi(column);
+            xlsxImunisasiMap.computeIfAbsent(code, k -> new SehatIndoImunisasiDto());
+            if (column.contains(SehatIndoColumn.TANGGAL.getName())) {
+                xlsxImunisasiMap.get(code).setTanggal(cell.toString());
+            } else if (column.contains(SehatIndoColumn.POS.getName())) {
+                xlsxImunisasiMap.get(code).setPos(cell.toString());
+            } else if (column.contains(SehatIndoColumn.STATUS.getName())) {
+                String statusValue = cell.toString().replace(POINT_ZERO, EMPTY);
+                xlsxImunisasiMap.get(code).setStatus(Integer.valueOf(statusValue));
+            }
         }
     }
 
@@ -86,85 +93,82 @@ public class SehatIndoDataService {
         ));
     }
 
-    private void mapXlsxImunisasiDetails(String column, Cell cell, SehatIndoImunisasiMap xlsxImunisasiMap) {
-        Imunisasi code = Imunisasi.getImunisasi(column);
-        xlsxImunisasiMap.computeIfAbsent(code, k -> new SehatIndoImunisasiDto());
+    private boolean mapAndValidateImunisasi(SehatIndoDto sehatIndoDto, EnumMap<Imunisasi, SehatIndoImunisasiDto> xlsxImunisasiMap) {
+        EnumMap<Imunisasi, SehatIndoImunisasiDto> imunisasiRutinMap = new EnumMap<>(Imunisasi.class);
+        EnumMap<Imunisasi, SehatIndoImunisasiDto> riwayatImunisasiMap = new EnumMap<>(Imunisasi.class);
 
-        if (column.contains(SehatIndoColumn.TANGGAL.getName())) {
-            xlsxImunisasiMap.get(code).setTanggal(cell.toString());
-        } else if (column.contains(SehatIndoColumn.POS.getName())) {
-            xlsxImunisasiMap.get(code).setPos(cell.toString());
-        } else if (column.contains(SehatIndoColumn.STATUS.getName())) {
-            String statusValue = cell.toString().replace(POINT_ZERO, EMPTY);
-            xlsxImunisasiMap.get(code).setStatus(Integer.valueOf(statusValue));
-        }
-    }
+        int eligibleImunisasiRutin = ZERO;
+        int eligibleRiwayatImunisasi = ZERO;
 
-    private boolean isSehatIndoDtoValid(SehatIndoDto sehatIndoDto, SehatIndoImunisasiMap xlsxImunisasiMap) {
-        int eligibleImunisasi = ZERO;
-        String usiaAnak = sehatIndoDto.getUsiaAnak();
-        for (Map.Entry<Imunisasi, SehatIndoImunisasiDto> map : xlsxImunisasiMap.entrySet()) {
-            // ONE means not yet received imunisasi rutin
-            Imunisasi imunisasi = map.getKey();
-            if (map.getValue().getStatus() == ONE && mustSetImunisasiRutin(imunisasi, usiaAnak)) {
-                sehatIndoDto.setImunisasiRutin(Imunisasi.isImunisasiRutin(sehatIndoDto.getUsiaAnak(), imunisasi));
-                if (sehatIndoDto.getImunisasiRutinMap() == null) {
-                    sehatIndoDto.setImunisasiRutinMap(new SehatIndoImunisasiMap(Imunisasi.class));
+        SehatIndoImunisasiDto details = getImunisasiDetails(sehatIndoDto, xlsxImunisasiMap);
+        for (Map.Entry<Imunisasi, SehatIndoImunisasiDto> xlsxImunisasi : xlsxImunisasiMap.entrySet()) {
+            Imunisasi imunisasi = xlsxImunisasi.getKey();
+            int status = xlsxImunisasi.getValue().getStatus();
+            if (status == ONE) {
+                String tanggal = tanggalAdjuster(details.getTanggal(), imunisasi);
+                if (mustSetImunisasiRutin(imunisasi, sehatIndoDto.getUsiaAnak())) {
+                    imunisasiRutinMap.put(imunisasi, new SehatIndoImunisasiDto(tanggal, details.getPos(), status));
+                    eligibleImunisasiRutin++;
+                } else {
+                    riwayatImunisasiMap.put(imunisasi, new SehatIndoImunisasiDto(tanggal, details.getPos(), status));
+                    eligibleRiwayatImunisasi++;
                 }
-                sehatIndoDto.getImunisasiRutinMap().computeIfAbsent(imunisasi, k -> new SehatIndoImunisasiDto());
-                eligibleImunisasi++;
             }
         }
-        return eligibleImunisasi > ZERO;
+
+        if (eligibleImunisasiRutin > ZERO) {
+            sehatIndoDto.setImunisasiRutinMap(imunisasiRutinMap);
+        }
+        if (eligibleRiwayatImunisasi > ZERO) {
+            sehatIndoDto.setRiwayatImunisasiMap(riwayatImunisasiMap);
+        }
+
+        return eligibleImunisasiRutin > ZERO || eligibleRiwayatImunisasi > ZERO;
     }
 
-    private boolean mustSetImunisasiRutin(Imunisasi imunisasi, String usiaAnak) {
-        int day = Integer.parseInt(usiaAnak.split(SPACE)[TWO]);
-        int month = Integer.parseInt(usiaAnak.split(SPACE)[ZERO]);
-        return switch (imunisasi) {
-            case HB_0 -> day <= ONE;
-            case BCG_1, POLIO_1 -> month >= ONE && month < TWO;
-            case DPT_HB_HIB_1, POLIO_2, PCV_1, ROTA_1 -> month >= TWO && month < THREE;
-            case DPT_HB_HIB_2, POLIO_3, PCV_2, ROTA_2 -> month >= THREE && month < FOUR;
-            case DPT_HB_HIB_3, POLIO_4, IPV_1, ROTA_3 -> month >= FOUR && month < NINE;
-            case MR_1, IPV_2 -> month >= NINE && month < TWELVE;
-            case PCV_3 -> month >= TWELVE && month < EIGHTEEN;
-            case MR_2, DPT_HB_HIB_4 -> month >= EIGHTEEN && month < TWENTY_FOUR;
-            default -> false;
-        };
-    }
+    private SehatIndoImunisasiDto getImunisasiDetails(SehatIndoDto sehatIndoDto, EnumMap<Imunisasi, SehatIndoImunisasiDto> xlsxImunisasiMap) {
+        LocalDate tanggal = LocalDate.parse(sehatIndoDto.getTanggalLahirAnak(), formatter).withYear(LocalDate.now().getYear());
+        String pos = EMPTY;
 
-    private void mapImunisasiRutin(SehatIndoDto sehatIndoDto, SehatIndoImunisasiMap xlsxImunisasiMap) {
-        String[] tglParts = sehatIndoDto.getTanggalLahirAnak().split(HYPHEN);
-        String tanggal = LocalDateTime.now().getYear() + HYPHEN + tglParts[ONE] + HYPHEN + tglParts[TWO];// default value
-        String pos = DALAM_GEDUNG;  // default value
-
-        boolean isTanggalAdjusted = false;
-        boolean isPosAdjusted = false;
         for (SehatIndoImunisasiDto xlsxImunisasi : xlsxImunisasiMap.values()) {
-            if (!HYPHEN.equals(xlsxImunisasi.getTanggal())) {
-                tanggal = xlsxImunisasi.getTanggal();
-                isTanggalAdjusted = true;
+            String tgl = xlsxImunisasi.getTanggal();
+            if (!HYPHEN.equals(tgl) && !tanggal.isEqual(tanggal.withDayOfMonth(LocalDate.parse(tgl, formatter).getDayOfMonth()))) {
+                int dayDifference = LocalDate.parse(tgl, formatter).getDayOfMonth() - tanggal.getDayOfMonth();
+                tanggal = tanggal.plusDays(dayDifference);
             }
+
             if (!HYPHEN.equals(xlsxImunisasi.getPos())) {
                 pos = xlsxImunisasi.getPos();
-                isPosAdjusted = true;
             }
-            if (isTanggalAdjusted && isPosAdjusted) {
+
+            if (!pos.equals(EMPTY) && !tanggal.isEqual(tanggal.withDayOfMonth(LocalDate.now().getDayOfMonth()))) {
                 break;
             }
         }
 
-        for (Map.Entry<Imunisasi, SehatIndoImunisasiDto> rutinMap : sehatIndoDto.getImunisasiRutinMap().entrySet()) {
-            rutinMap.getValue().setTanggal(holidayChecker(tanggal));
-            rutinMap.getValue().setPos(pos);
-            rutinMap.getValue().setStatus(xlsxImunisasiMap.get(rutinMap.getKey()).getStatus());
-        }
+        pos = pos.equals(EMPTY) ? DALAM_GEDUNG : pos;
+
+        // tanggal = (birthday of the month or previous imunisasi day of the month) + birth month
+        return SehatIndoImunisasiDto.builder().tanggal(tanggal.format(formatter)).pos(pos).build();
     }
 
-    private String holidayChecker(String strTanggal) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATETIME_PATTERN, new Locale(LANGUAGE, COUNTRY));
-        LocalDate tanggal = LocalDate.parse(strTanggal, formatter);
+
+    private boolean mustSetImunisasiRutin(Imunisasi imunisasi, String usiaAnak) {
+        String[] usiaAnakArr = usiaAnak.split(SPACE);
+        if (imunisasi.equals(Imunisasi.HB_0)) {
+            int day = Integer.parseInt(usiaAnakArr[TWO]);
+            return day <= ONE;
+        }
+        int month = Integer.parseInt(usiaAnakArr[ZERO]);
+        return month >= imunisasi.getScheduledMonth() && month < imunisasi.getEndScheduledMonth();
+    }
+
+    private String tanggalAdjuster(String strTanggal, Imunisasi imunisasi) {
+        LocalDate tgl = LocalDate.parse(strTanggal, formatter);
+        return holidayChecker(tgl.plusMonths((long) tgl.getMonthValue() - imunisasi.getScheduledMonth()));
+    }
+
+    private String holidayChecker(LocalDate tanggal) {
         while (tanggal.getDayOfWeek() == DayOfWeek.SUNDAY || IndonesianPublicHoliday.isPublicHoliday(tanggal)) {
             tanggal = tanggal.plusDays(ONE);
         }
